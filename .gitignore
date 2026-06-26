@@ -6,8 +6,6 @@ node_modules/
 Thumbs.db
 
 # Evaluation files
-frontend.md
-pre-test setup
 credentials.json
 
 # Local env files
