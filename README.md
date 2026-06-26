@@ -26,6 +26,14 @@ Took over the frontend scaffold, fixed a bunch of bugs and missing pieces:
 
 ## Visuals & Demos
 
+### Video Demos
+
+#### Desktop View
+<video src="media/desktop.mp4" width="100%" controls></video>
+
+#### Mobile View
+<video src="media/mobile.mp4" width="100%" controls></video>
+
 ### Screenshots
 
 #### All Notifications Page

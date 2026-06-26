@@ -80,3 +80,12 @@ The app now has two pages:
 - **Priority Inbox** (`/priority`) — shows top N sorted by weight+recency, with adjustable limit (5/10/15/20) and type filter
 
 Read/unread tracking uses localStorage — clicking an unread notification marks it as read. Unread ones have a blue left border and darker background.
+
+### Video Demos
+
+#### Desktop View
+<video src="media/desktop.mp4" width="100%" controls></video>
+
+#### Mobile View
+<video src="media/mobile.mp4" width="100%" controls></video>
+
