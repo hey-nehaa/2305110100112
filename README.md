@@ -28,6 +28,8 @@ Took over the frontend scaffold, fixed a bunch of bugs and missing pieces:
 
 ### Video Demos
 
+*(If the videos do not stream or play directly in GitHub, please download or view them from the [media/](media/) folder directly.)*
+
 #### Desktop View
 <video src="media/desktop.mp4" width="100%" controls></video>
 

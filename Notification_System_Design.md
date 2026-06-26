@@ -83,6 +83,8 @@ Read/unread tracking uses localStorage — clicking an unread notification marks
 
 ### Video Demos
 
+*(If the videos do not stream or play directly in GitHub, please download or view them from the [media/](media/) folder directly.)*
+
 #### Desktop View
 <video src="media/desktop.mp4" width="100%" controls></video>
 
