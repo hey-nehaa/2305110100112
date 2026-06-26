@@ -1,85 +1,91 @@
 import { useState } from "react";
 import {
-  Alert,
-  Badge,
-  Box,
-  CircularProgress,
-  Divider,
-  Pagination,
-  Stack,
-  Typography,
+  Alert, Badge, Box, CircularProgress,
+  Divider, Stack, Typography,
 } from "@mui/material";
 import NotificationsIcon from "@mui/icons-material/Notifications";
-
 import { NotificationCard } from "../components/NotificationCard";
 import { NotificationFilter } from "../components/NotificationFilter";
 import { useNotifications } from "../hooks/useNotifications";
+import { Log } from "logging-middleware";
+
+const VIEWED_KEY = "viewedNotifications";
+
+function getViewed() {
+  try {
+    return JSON.parse(localStorage.getItem(VIEWED_KEY)) || [];
+  } catch { return []; }
+}
+
+function markViewed(id) {
+  const viewed = getViewed();
+  if (!viewed.includes(id)) {
+    viewed.push(id);
+    localStorage.setItem(VIEWED_KEY, JSON.stringify(viewed));
+  }
+}
 
 export function NotificationsPage() {
-  const [filter, setFilter] = useState();
-  const [page, setPage] = useState("1");
+  const [filter, setFilter] = useState("All");
+  const [viewed, setViewed] = useState(getViewed());
 
-  const { notifications, totalPages, loading, error } = useNotifications();
+  const type = filter === "All" ? undefined : filter;
+  const { notifications, loading, error } = useNotifications(undefined, type);
 
-  const unreadCount = 2;
+  const unreadCount = notifications.filter(n => !viewed.includes(n.ID)).length;
 
-  const handleFilterChange = (newFilter) => {
-
+  const handleFilterChange = (val) => {
+    setFilter(val);
+    Log("frontend", "info", "page", `filter changed to ${val}`);
   };
 
-  const handlePageChange = (_, newPage) => {
-
+  const handleMarkRead = (id) => {
+    markViewed(id);
+    setViewed([...getViewed()]);
   };
 
   return (
-    <Box sx={{ maxWidth: 720, mx: "auto", px: 2, py: 4 }}>
-      <Stack direction="row" alignItems="center" spacing={1.5} mb={3}>
-        <Badge badgeContent={unreadCount} color="primary" max={99}>
+    <Box sx={{ maxWidth: 700, mx: "auto", px: 2, py: 3 }}>
+      <Stack direction="row" alignItems="center" spacing={1.5} mb={2}>
+        <Badge badgeContent={unreadCount} color="error" max={99}>
           <NotificationsIcon sx={{ fontSize: 28 }} />
         </Badge>
         <Typography variant="h5" fontWeight={700}>
-          Notifications
+          All Notifications
         </Typography>
       </Stack>
 
-      <Divider sx={{ mb: 3 }} />
+      <Divider sx={{ mb: 2 }} />
 
-      <Box sx={{ marginBottom: 3 }}>
+      <Box mb={2}>
         <NotificationFilter value={filter} onChange={handleFilterChange} />
       </Box>
 
-      {true && (
+      {loading && (
         <Box display="flex" justifyContent="center" py={6}>
           <CircularProgress />
         </Box>
       )}
 
       {!loading && error && (
-        <Alert severity="error">Failed to load notifications: {error}</Alert>
+        <Alert severity="error">Failed to load: {error}</Alert>
       )}
 
-      {loading && !error && notifications.length == "0" && (
-        <Alert severity="info">Something message</Alert>
+      {!loading && !error && notifications.length === 0 && (
+        <Alert severity="info">No notifications found</Alert>
       )}
 
-      {loading && !error && notifications.length > 0 && (
+      {!loading && !error && notifications.length > 0 && (
         <Stack spacing={1.5}>
           {notifications.map((n) => (
-            <></>
+            <NotificationCard
+              key={n.ID}
+              notification={n}
+              isRead={viewed.includes(n.ID)}
+              onMarkRead={handleMarkRead}
+            />
           ))}
         </Stack>
-      )}
-
-      {!loading && (
-        <Box display="flex" justifyContent="center" mt={4}>
-          <Pagination
-            count={totalPages}
-            page={page}
-            onChange={handlePageChange}
-            color="primary"
-            shape="rounded"
-          />
-        </Box>
       )}
     </Box>
   );
