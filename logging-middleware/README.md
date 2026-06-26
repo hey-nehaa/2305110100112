@@ -1,29 +1,17 @@
 ## Logging Middleware
 
-Reusable logging module that sends structured logs to the evaluation server.
+Sends structured logs to the evaluation test server.
 
-### Usage
+### How to use
 
 ```js
 import { initLogger, Log } from "logging-middleware";
 
-initLogger({
-  email: "...",
-  name: "...",
-  rollNo: "...",
-  accessCode: "...",
-  clientID: "...",
-  clientSecret: "...",
-});
+// call this once when the app starts
+initLogger({ email, name, rollNo, accessCode, clientID, clientSecret });
 
-Log("frontend", "info", "component", "page rendered successfully");
+// then log stuff wherever needed
+Log("frontend", "info", "component", "notifications page loaded");
 ```
 
-### Parameters
-
-`Log(stack, level, package, message)`
-
-- **stack**: `"backend"` | `"frontend"`
-- **level**: `"debug"` | `"info"` | `"warn"` | `"error"` | `"fatal"`
-- **package**: depends on stack (see setup doc for full list)
-- **message**: descriptive string
+The token gets cached automatically so it only hits /auth once.

@@ -2,63 +2,41 @@
 
 ## Stage 1
 
-### Problem
-Users are overwhelmed by the high volume of campus notifications. We need a Priority Inbox that always shows the top N most important unread notifications, where priority is based on notification type and recency.
+### The Problem
 
-### Priority Scoring
+Users get too many notifications and miss the important ones. We need to show the top N (like top 10) most important notifications first based on their type and how recent they are.
 
-Each notification has a type — Placement, Result, or Event. These are weighted as:
+### How I'm Determining Priority
 
-| Type | Weight |
-|------|--------|
-| Placement | 3 (highest) |
-| Result | 2 |
-| Event | 1 (lowest) |
+I'm using two factors:
+- **Type weight** — Placement notifications are most important (weight 3), Results are next (weight 2), Events are least (weight 1)
+- **Recency** — newer notifications rank higher than older ones of the same type
 
-When two notifications share the same type, the more recent one (newer timestamp) takes precedence.
-
-### Approach — Min-Heap of Size N
-
-I used a **min-heap bounded to size N** (where N = 10 by default) to efficiently find the top N priority notifications.
-
-**Why a heap instead of just sorting?**
-
-Sorting the entire list works fine when the dataset is small (like the 20 notifications we get from the API right now). But the problem says "new notifications will keep coming in" — so we need something that handles a growing stream efficiently.
-
-With a min-heap of size N:
-- The root always holds the **lowest-priority item** currently in the top N
-- When a new notification arrives, we compare it against the root
-- If the new one has higher priority, we replace the root and re-heapify
-- Each insertion takes **O(log N)** instead of re-sorting the full list at **O(M log M)** where M is the total notification count
-
-After processing all notifications, we extract and sort the heap contents (only N items) to get the final ordered list.
-
-### How the Min-Heap Works
-
-The heap uses a custom `_isLower(a, b)` comparator that returns true when `a` has strictly lower priority than `b`. This ensures:
-1. Lower-priority items bubble up to the root
-2. When a higher-priority item arrives and the heap is full, it replaces the root (weakest item)
-3. The heap always retains the N strongest items
-
-### Handling New Notifications
-
-Since notifications keep coming, the heap-based approach is ideal:
-- We don't need to re-sort everything when a new notification arrives
-- Just call `heap.insert(newNotification)` — O(log N)
-- The heap auto-evicts the weakest if the new one is better
-- To get the current top N at any time, call `heap.getSorted()`
-
-### Output Screenshot
-
-Running `node priority-notifications.js` produces the top 10 notifications sorted by priority:
-
+To combine both into a single comparable number, I do:
 ```
-=== Top 10 Priority Notifications ===
-
-1. [Placement] (weight=3) — most recent placement
-2. [Placement] (weight=3) — next recent placement
-...
-10. [Result] (weight=2) — fills remaining slots
+score = typeWeight * 1e15 + timestamp_in_ms
 ```
+This way type always dominates, but within the same type, newer ones win.
 
-Placements dominate the top slots due to their weight advantage. Results appear next, and Events only show up if there aren't enough higher-weighted notifications to fill the top N.
+### Why I Used a Min-Heap
+
+The straightforward approach would be to sort all notifications and take the first 10. That works but it's O(n log n) every time.
+
+Since the problem says new notifications keep coming in, I went with a min-heap of fixed size 10:
+- The heap root always has the weakest item in my top 10
+- When a new notification comes in, I compare it with the root
+- If the new one is better, swap it in and re-heapify — that's O(log 10) which is basically O(1)
+- No need to re-sort the whole thing every time
+
+So for a stream of M incoming notifications, total cost is O(M log N) instead of O(M * N log N) if I re-sorted each time.
+
+### How It Works in Code
+
+1. Fetch all notifications from the API
+2. Push each one into a `MinHeap(10)`
+3. The heap keeps only the 10 strongest, automatically evicting weaker ones
+4. Call `heap.sorted()` to get them in order
+
+### Output
+
+_(screenshots to be added)_

@@ -10,131 +10,92 @@ const creds = {
   clientID: "86e346f6-e68b-4f94-bed3-cdefb4b6a8f7",
   clientSecret: "xKYFtjTgWehgdFXy",
 };
-
 initLogger(creds);
 
-const TYPE_WEIGHT = {
-  Placement: 3,
-  Result: 2,
-  Event: 1,
-};
+const typeWeight = { Placement: 3, Result: 2, Event: 1 };
 
-function comparePriority(a, b) {
-  const wA = TYPE_WEIGHT[a.Type] || 0;
-  const wB = TYPE_WEIGHT[b.Type] || 0;
-
-  if (wA !== wB) return wB - wA;
-
-  const tA = new Date(a.Timestamp).getTime();
-  const tB = new Date(b.Timestamp).getTime();
-  return tB - tA;
-}
-
-// min-heap that keeps the N highest-priority items
-// the root always holds the lowest-priority item in the heap
-// so when a better item comes in, we can quickly evict the weakest
+// using a min-heap so we can efficiently keep only the top N
+// the smallest (lowest priority) sits at root and gets kicked out
+// when something better comes along
 class MinHeap {
-  constructor(maxSize) {
-    this.heap = [];
-    this.maxSize = maxSize;
+  constructor(n) {
+    this.data = [];
+    this.n = n;
   }
 
-  _isLower(a, b) {
-    const wA = TYPE_WEIGHT[a.Type] || 0;
-    const wB = TYPE_WEIGHT[b.Type] || 0;
-    if (wA !== wB) return wA < wB;
-    const tA = new Date(a.Timestamp).getTime();
-    const tB = new Date(b.Timestamp).getTime();
-    return tA < tB;
+  _priority(item) {
+    return (typeWeight[item.Type] || 0) * 1e15 + new Date(item.Timestamp).getTime();
   }
 
-  insert(item) {
-    if (this.heap.length < this.maxSize) {
-      this.heap.push(item);
-      this._bubbleUp(this.heap.length - 1);
-    } else if (this._isLower(this.heap[0], item)) {
-      this.heap[0] = item;
-      this._sinkDown(0);
+  push(item) {
+    if (this.data.length < this.n) {
+      this.data.push(item);
+      this._up(this.data.length - 1);
+    } else if (this._priority(item) > this._priority(this.data[0])) {
+      this.data[0] = item;
+      this._down(0);
     }
   }
 
-  getSorted() {
-    return [...this.heap].sort(comparePriority);
+  sorted() {
+    return [...this.data].sort((a, b) => this._priority(b) - this._priority(a));
   }
 
-  _bubbleUp(i) {
+  _up(i) {
     while (i > 0) {
-      const parent = Math.floor((i - 1) / 2);
-      if (this._isLower(this.heap[i], this.heap[parent])) {
-        [this.heap[i], this.heap[parent]] = [this.heap[parent], this.heap[i]];
-        i = parent;
+      let p = (i - 1) >> 1;
+      if (this._priority(this.data[i]) < this._priority(this.data[p])) {
+        [this.data[i], this.data[p]] = [this.data[p], this.data[i]];
+        i = p;
       } else break;
     }
   }
 
-  _sinkDown(i) {
-    const n = this.heap.length;
+  _down(i) {
+    let n = this.data.length;
     while (true) {
-      let smallest = i;
-      const left = 2 * i + 1;
-      const right = 2 * i + 2;
-      if (left < n && this._isLower(this.heap[left], this.heap[smallest]))
-        smallest = left;
-      if (right < n && this._isLower(this.heap[right], this.heap[smallest]))
-        smallest = right;
-      if (smallest !== i) {
-        [this.heap[i], this.heap[smallest]] = [this.heap[smallest], this.heap[i]];
-        i = smallest;
+      let min = i, l = 2*i+1, r = 2*i+2;
+      if (l < n && this._priority(this.data[l]) < this._priority(this.data[min])) min = l;
+      if (r < n && this._priority(this.data[r]) < this._priority(this.data[min])) min = r;
+      if (min !== i) {
+        [this.data[i], this.data[min]] = [this.data[min], this.data[i]];
+        i = min;
       } else break;
     }
   }
 }
 
-async function getToken() {
-  const res = await fetch(`${BASE_URL}/auth`, {
+async function run() {
+  await Log("backend", "info", "service", "starting priority finder");
+
+  // get auth token
+  let res = await fetch(`${BASE_URL}/auth`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(creds),
   });
-  const data = await res.json();
-  return data.access_token;
-}
+  const { access_token } = await res.json();
 
-async function fetchNotifications(token) {
-  const res = await fetch(`${BASE_URL}/notifications`, {
-    headers: { Authorization: `Bearer ${token}` },
+  // grab notifications
+  res = await fetch(`${BASE_URL}/notifications`, {
+    headers: { Authorization: `Bearer ${access_token}` },
   });
-  const data = await res.json();
-  return data.notifications || [];
-}
+  const { notifications } = await res.json();
 
-async function main() {
-  const N = 10;
+  await Log("backend", "info", "service", `got ${notifications.length} notifications`);
 
-  await Log("backend", "info", "service", "starting priority notification finder");
+  // shove them all into the heap
+  const heap = new MinHeap(10);
+  notifications.forEach(n => heap.push(n));
 
-  const token = await getToken();
-  const notifications = await fetchNotifications(token);
+  const top10 = heap.sorted();
 
-  await Log("backend", "info", "service", `fetched ${notifications.length} notifications`);
-
-  const heap = new MinHeap(N);
-  for (const notif of notifications) {
-    heap.insert(notif);
-  }
-
-  const top = heap.getSorted();
-
-  console.log(`\n=== Top ${N} Priority Notifications ===\n`);
-  top.forEach((n, i) => {
-    const weight = TYPE_WEIGHT[n.Type];
-    console.log(
-      `${i + 1}. [${n.Type}] (weight=${weight}) ${n.Message} — ${n.Timestamp}`
-    );
+  console.log(`\nTop 10 Priority Notifications:\n`);
+  top10.forEach((n, i) => {
+    console.log(`  ${i+1}. [${n.Type}] ${n.Message} (${n.Timestamp})`);
   });
-  console.log();
 
-  await Log("backend", "info", "service", `displayed top ${N} priority notifications`);
+  await Log("backend", "info", "service", "done");
 }
 
-main();
+run();
